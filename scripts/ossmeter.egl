@@ -1,0 +1,121 @@
+[%
+modelManager.loadMuddleURL("OSSMeter", "http://www.zolotas.net/bacon/uploads/ossmeterModel.graphml");
+
+var project = Project.all;
+var aspects = Aspect.all;
+var attributes = Attribute.all;
+
+var roles = project.roleinsource.target.get(0);
+
+var everythingOK = validate();
+//everythingOK = true;
+
+if (everythingOK) {
+	%]
+	{
+		"qualityModel": {
+			"name":"[%=project.get(0).name%]",
+			[%
+			if (not roles.isEmpty()) { %]
+			"qualityAspects":[
+			[%
+				for (role in roles) { 
+					checkAndBuildQualityAspectsOrAttributes(role);
+					if(hasMore) { %]
+						,
+					[%}
+				} 
+			}%]
+	]
+	}
+}		
+	
+	[%
+} else {
+	("Problem").println();
+}
+
+function checkAndBuildQualityAspectsOrAttributes(theElement) { 
+	 %]
+	{"name":"[%=theElement.name%]", [%
+	//If there's no link from this element to an aspect then write the attribute template
+	if (theElement.roleinsource.target.isEmpty()) { %]
+		"qualityAspects": [],
+		"attributes": [
+		[%
+		for (link in theElement.attributeSource.target) { %]
+			{"name":"[%=link.name%]",
+			"description":[%=link.Description%],
+			"factoids":[ [%
+			for (factoid in link.roleinsourcefactoid.target) { 
+				if(factoid == link.roleinsourcefactoid.target.get(link.roleinsourcefactoid.target.size()-1)) {%]
+					"[%=factoid.name%]"
+			[%	} else { %]
+					"[%=factoid.name%]",		
+			[%	}
+			}%]
+			],
+			"metrics":[
+			[%
+			for (metric in link.roleinsourcemetric.target) { 
+				if(metric == link.roleinsourcemetric.target.get(link.roleinsourcemetric.target.size()-1)) {%]
+					"[%=metric.name%]"
+			[%	} else { %]
+					"[%=metric.name%]",		
+			[%	}
+			}%]
+			]
+			[%
+			if (hasMore) { %]
+				},
+			[%} else {%]
+				}
+			[%}
+			%]
+		[%
+		}%] 
+		][%
+	//Else write the aspect template which actually recalls (recursive) the same function to go one level deeper	
+	} else { 
+		%]
+		"attributes": [],
+		"qualityAspects": [
+		[%
+		for (recursiveElement in theElement.roleinsource.target) {
+			checkAndBuildQualityAspectsOrAttributes(recursiveElement);
+			if (hasMore) { %]
+				,
+			[%}
+		}%]
+	]
+	[%
+	}%]
+	}
+[%	
+}
+
+function validate() {
+	var aspects = Aspect.all;
+	var attributes = Attribute.all;
+	var result : Boolean;
+	result = true;
+	for (att in attributes) {
+		if (att.roleinsourcefactoid.target.isEmpty()) {
+			("All attributes should have at least one factoid. [" + att.name + "]").println();
+			result = false;
+			return result;
+		} else if (att.roleinsourcemetric.target.isEmpty()) {
+			("All attributes should have at least one metric. [" + att.name + "]").println();
+			result = false;
+			return result;
+		} else if (not att.Description.isDefined()) {
+			("All attributes should have a Description property. [" + att.name + "]").println();
+			result = false;
+			return result;
+		}
+	}
+	
+	return result;
+}
+
+%]
